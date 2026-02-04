@@ -1,78 +1,105 @@
-const numbers = [];
-let operator = '';
+let previousValue = null;
+let previousOperator = null;
+let shouldClear = false;   // should next digit overwrite display?
+
 const display = document.querySelector(".display");
-let displayMode = 'input';
-let lastOperator = '='
 
-document
-.querySelector(".button-grid")
-.addEventListener("click", (event) => delegator(event.target));
-
-function handleNumber(number) {
-    if (displayMode === 'answer') {
-        numbers.push(Number.parseInt(display.textContent));
-        display.textContent = '';
-        displayMode = 'input';
+document.querySelector(".button-grid").addEventListener("click", (event) => {
+    if (event.target.tagName === "BUTTON") {
+        delegator(event.target);
     }
-    if (display.textContent === '0') display.textContent = '';
-    display.textContent += number;
+});
+
+function calculate(a, b, op) {
+    switch (op) {
+        case "+": return a + b;
+        case "-": return a - b;
+        case "*": return a * b;
+        case "/": return b === 0 ? NaN : a / b;
+        default:     throw new Error(`Unknown operator: ${op}`);
+    }
 }
+
+function handleNumber(value) {
+    if (value === "." && display.textContent.includes(".")) return;
+
+    if (shouldClear) {
+        display.textContent = value === "." ? "0." : value;
+        shouldClear = false;
+        return;
+    }
+
+    if (display.textContent === "0" && value !== ".") {
+        display.textContent = value;
+        return;
+    }
+    display.textContent += value;
+}
+
 
 function handleOperator(operator) {
-    lastOperator = operator;
-    if (displayMode === 'input') {
-        numbers.push(Number.parseInt(display.textContent));
-        switch (operator) {
-            case "+":
-                display.textContent = numbers.reduce((a, b) => a + b);
-                break;
-            case "-":
-                display.textContent = numbers.reduce((a, b) => a - b);
-                break;
-            case "*":
-                display.textContent = numbers.reduce((a, b) => a * b);
-                break;
-            case "/":
-                display.textContent = numbers.reduce((a, b) => a / b);
-                break;
-            case "=":
-                display.textContent = numbers[0];
-        }
-        displayMode = "answer";
+    const currentValue = parseFloat(display.textContent);
+
+    if (previousValue === null) {
+        previousValue = currentValue;
+    } else if (!shouldClear) {
+        previousValue = calculate(previousValue, currentValue, previousOperator);
+        display.textContent = previousValue.toString();
     }
+
+    previousOperator = operator;
+    shouldClear = true;
 }
+
+
+function handleEqual() {
+    if (previousOperator === null || shouldClear) return;
+
+    const currentValue = parseFloat(display.textContent);
+    const result = calculate(previousValue, currentValue, previousOperator);
+
+    display.textContent = result.toString();
+    previousValue = result;
+    previousOperator = null;
+    shouldClear = true;
+}
+
 
 function handleSystem(action) {
     switch (action) {
         case "clear":
-            numbers.length = 0;
-            displayMode = 'input';
-            display.textContent = '0';
+            display.textContent = "0";
+            previousValue = null;
+            previousOperator = null;
+            shouldClear = false;
             break;
+
         case "backspace":
-            display.textContent = display.textContent.slice(0, -1);
+            if (shouldClear) return;
+            display.textContent =
+                display.textContent.length > 1
+                    ? display.textContent.slice(0, -1)
+                    : "0";
             break;
     }
 }
 
 function delegator(button) {
-    switch(button.className) {
-        case "number":
-            handleNumber(button.dataset.value);
-            break;
-        case "operator":
+    if (button.classList.contains("number")) {
+        handleNumber(button.dataset.value);
+        return;
+    }
+
+    if (button.classList.contains("operator")) {
+        if (button.dataset.value === "=") {
+            handleEqual();
+        } else {
             handleOperator(button.dataset.value);
-            break;
-        case "system":
-            handleSystem(button.dataset.action);
-            break;
-        default:
-            alert("Error");
-            throw new Error("Invalid button input");
+        }
+        return;
+    }
+
+    if (button.classList.contains("system")) {
+        handleSystem(button.dataset.action);
     }
 }
-
-/*
-* IF IN ANSWER MODE AND NUMBER IS PRESSED:
-*   SCREEN NEEDS TO BE CLEARED AND NEW NUMBER ADDED
-* */
